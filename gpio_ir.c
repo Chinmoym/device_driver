@@ -10,36 +10,124 @@
 #include <linux/gpio.h>
 #include <linux/time.h>
 #include <linux/errno.h>
+#include <linux/timekeeping.h>
+#include <linux/delay.h>
 
+#define KEY_POWER 0x06F948B7
 
-#define KEY_POWER 0x0000000
+#ifndef MAX_UDELAY_MS
+	#define MAX_UDELAY_US 5000
+#else
+	#define MAX_UDELAY_US (MAX_UDELAY_MS*1000)
+#endif
+
 
 
 MODULE_AUTHOR("Chinmoy Mohapatra");
-MODULE_DESCRIPTION("IR code transmitter through GPIO-23");
+MODULE_DESCRIPTION("IR code transmitter through GPIO-22");
 MODULE_LICENSE("GPL");
 
 
 int ret;
-static int gpio_out_pin=23; //gpio out pin defaulted to 23
-
+static int gpio_out_pin=22; //gpio out pin defaulted to 22
 static struct gpio_chip *gpiochip;
+
+static bool sw_carrier = 1;
 
 
 module_param(gpio_out_pin, int, 0);
 MODULE_PARM_DESC(gpio_out_pin, "GPIO output pin");
 
-
+static void gpio_setpin(int pin, int value)
+{
+	gpiochip->set(gpiochip, pin, value);
+}
 
 /***********************************IR functions**************************************/
-static void sendNEC(long data, int nbits)
+
+static unsigned long read_current_time(void)
 {
-	printk("%d\n",gpio_out_pin);
+	struct timespec current_time;
+	getnstimeofday(&current_time);
+	return (current_time.tv_sec * 1000000) + (current_time.tv_nsec/1000);
+}
+
+static long send_sw_carrier(unsigned long length)
+{
+	unsigned long actual_t = 0, initial_t = 0;
+	length *= 1000;
+	initial_t = read_current_time();
+	while(actual_t < length)
+	{
+		gpio_setpin(gpio_out_pin,1);
+		udelay(8);
+		gpio_setpin(gpio_out_pin,0);
+		udelay(17);
+
+		actual_t = (read_current_time() - initial_t) * 1000;
+	}
+	return 0;
+}
+
+static void my_delay(unsigned long u_secs)
+{
+	while (u_secs > MAX_UDELAY_US)
+	{
+		udelay(MAX_UDELAY_US);
+		u_secs -= MAX_UDELAY_US;
+	}
+	udelay(u_secs);
+}
+
+static long send_pulse(unsigned long length)
+{
+	if (length <= 0)
+		return 0;
+	if (sw_carrier)
+		return send_sw_carrier(length);
+	else
+	{
+		gpio_setpin(gpio_out_pin,1);
+		my_delay(length);
+	}
+	return 0;
+}
+
+static void send_space(long length)
+{
+	gpio_setpin(gpio_out_pin,0);
+	if (length <= 0)
+		return;
+	my_delay(length);
+}
+
+static void sendIR(long data, int nbits)
+{
+	int i=0;
+	//send header or start
+	send_pulse(9036);
+	send_space(4449);
+	//send data
+	for(i=0;i<nbits;i++)
+	{
+		if (data & 0x80000000)
+		{
+			send_pulse(590);
+			send_space(1653);
+		}
+		else
+		{
+			send_pulse(590);
+			send_space(528);
+		}
+		data = data<<1;
+	}
+	//send stop signal
+	send_pulse(588);
+	send_space(0);
 }
 
 /***************************************IR end****************************************/
-
-
 
 
 //define device
@@ -94,7 +182,7 @@ static ssize_t store_button(struct device *dev, struct device_attribute *attr, c
 		return -EINVAL;
 	else
 	{
-		sendNEC(KEY_POWER,40); //send KEY_POWER
+		sendIR(KEY_POWER,32); //send KEY_POWER
 		result = valsize;
 		return result;
 	}
