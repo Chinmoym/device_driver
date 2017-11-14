@@ -1,6 +1,6 @@
 /***************************************************************************************
 
-		Module to send on or off IR code through GPIO pin 23
+		Module to send on or off IR code through GPIO pin 22
 
 ***************************************************************************************/
 
@@ -21,6 +21,14 @@
 	#define MAX_UDELAY_US (MAX_UDELAY_MS*1000)
 #endif
 
+#define ONE_PULSE	590
+#define ONE_GAP		1653
+#define ZERO_PULSE	590
+#define ZERO_GAP	528
+#define HEADER_PULSE	9036
+#define HEADER_GAP	4449
+#define STOP_PULSE	588
+#define STOP_GAP	0
 
 
 MODULE_AUTHOR("Chinmoy Mohapatra");
@@ -105,26 +113,26 @@ static void sendIR(long data, int nbits)
 {
 	int i=0;
 	//send header or start
-	send_pulse(9036);
-	send_space(4449);
+	send_pulse(HEADER_PULSE);
+	send_space(HEADER_GAP);
 	//send data
 	for(i=0;i<nbits;i++)
 	{
 		if (data & 0x80000000)
 		{
-			send_pulse(590);
-			send_space(1653);
+			send_pulse(ONE_PULSE);
+			send_space(ONE_GAP);
 		}
 		else
 		{
-			send_pulse(590);
-			send_space(528);
+			send_pulse(ZERO_PULSE);
+			send_space(ZERO_GAP);
 		}
 		data = data<<1;
 	}
 	//send stop signal
-	send_pulse(588);
-	send_space(0);
+	send_pulse(STOP_PULSE);
+	send_space(STOP_GAP);
 }
 
 /***************************************IR end****************************************/
