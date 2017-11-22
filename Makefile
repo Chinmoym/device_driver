@@ -1,6 +1,6 @@
 ifneq ($(KERNELRELEASE),)
 
-obj-m := gpio_ir.o
+obj-m := my_hdmi.o
 
 else
 KDIR  := /lib/modules/$(shell uname -r)/build
