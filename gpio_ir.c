@@ -93,11 +93,11 @@ static long send_pulse(unsigned long length)
 		return 0;
 	if (sw_carrier)
 		return send_sw_carrier(length);
-	else
+	/*else
 	{
 		gpio_setpin(gpio_out_pin,1);
 		my_delay(length);
-	}
+	}*/
 	return 0;
 }
 
@@ -111,7 +111,9 @@ static void send_space(long length)
 
 static void sendIR(long data, int nbits)
 {
-	int i=0;
+
+	int i;
+	printk("IR Module : Sending IR \n");
 	//send header or start
 	send_pulse(HEADER_PULSE);
 	send_space(HEADER_GAP);
@@ -230,7 +232,7 @@ static void ir_release(struct device *dev)
 static struct ir_dev ir;
 static struct platform_device ir_pdev = {
 	.name	= "ir",
-	.id	= 0,
+	.id	= -1,
 	.dev 	= {
 		.release	= ir_release,
 		.groups		= ir_attr_groups,
